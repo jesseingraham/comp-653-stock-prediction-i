@@ -71,26 +71,34 @@ Because this repository is private, standard `git clone` commands in Google Cola
 Because data is hosted on a Google Shared Drive and code is version-controlled here, all execution notebooks (`notebooks/`) must begin with the following boilerplate to bridge the environments:
 
 ```python
+import os
+import sys
+from google.colab import drive, userdata
+
 # 1. Mount Google Drive for Datasets & Model Weights
-from google.colab import drive
 drive.mount('/content/drive')
 
-# 2. Clone PRIVATE repository
-from google.colab import userdata
-
-# Fetch the hidden token from Colab Secrets
+# 2. Define Absolute Paths
 GITHUB_TOKEN = userdata.get('GITHUB_TOKEN')
 GITHUB_USER = "jesseingraham"
 REPO_NAME = "comp-653-stock-prediction-i"
+REPO_PATH = f"/content/{REPO_NAME}"
 
-# Clone using the token URL formatting
-!git clone https://{GITHUB_TOKEN}@github.com/{GITHUB_USER}/{REPO_NAME}.git
-%cd {REPO_NAME}
+# 3. Clone ONLY if we haven't already
+if not os.path.exists(REPO_PATH):
+    !git clone https://{GITHUB_TOKEN}@github.com/{GITHUB_USER}/{REPO_NAME}.git
 
-# 3. Install dependencies
+# 4. Safely change to the absolute path
+os.chdir(REPO_PATH)
+
+# 5. Add the repository root to Python's system path
+if REPO_PATH not in sys.path:
+    sys.path.append(REPO_PATH)
+
+# 6. Install dependencies
 !pip install -r requirements.txt
 
-# 4. Import modularized code
-from src.config import DRIVE_DATA_PATH
-from src.data.fetcher import get_sp500_data
+# 7. Import modularized code
+from config import DRIVE_DATA_PATH
+# from src.data.fetcher import get_sp500_data
 ```
