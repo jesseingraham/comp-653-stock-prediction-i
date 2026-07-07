@@ -1,2 +1,96 @@
-# comp-653-stock-prediction-i
-The project aims to develop a data-driven trading system to forecast S&amp;P 500 price movements across 1-day, 2-day, and 3-day intervals. The methodology centers on an ablation study comparing two RNN models.
+# COMP 653 Finance Project: Two-Stage ML Model for Stock Prediction
+
+## Overview
+This project aims to build a two-stage machine learning (ML) pipeline applied to financial time series data, specifically targeting the S&P 500 index. The core problem is twofold: first, to automatically detect and classify recurring chart patterns in OHLCV (Open, High, Low, Close, Volume) price data as they emerge in real time; and second, to leverage those pattern classifications as contextual features to improve intraday price forecasting. This work is motivated by the practical goal of developing a data-driven trading system.
+
+## Repository Structure
+
+To prevent Jupyter Notebook merge conflicts, core logic is maintained in modular Python scripts within the `src/` directory, while notebooks are used strictly for execution and visualization.
+
+```text
+comp-653-stock-prediction-i/
+│
+├── README.md                   # Project overview and instructions
+├── requirements.txt            # Shared libraries (yfinance, torch/tensorflow, zeta-zetra)
+├── config.py                   # Global variables (Drive paths, tickers, look-back windows)
+│
+├── notebooks/                  # Colab Notebooks (Execution dashboards)
+│   ├── 01_data_collection.ipynb       
+│   ├── 02_feature_engineering.ipynb   
+│   ├── 03_baseline_model.ipynb        
+│   ├── 04_augmented_model.ipynb       
+│   └── 05_evaluation.ipynb            
+│
+├── src/                        # Core Python Modules
+│   ├── __init__.py
+│   │
+│   ├── data/                   # Data Architect Domain
+│   │   ├── fetcher.py          
+│   │   └── cleaner.py          
+│   │
+│   ├── features/               # Feature Engineering Domain
+│   │   ├── patterns.py         
+│   │   └── windowing.py        
+│   │
+│   ├── models/                 # ML Engineering Domain
+│   │   ├── rnn_baseline.py     
+│   │   ├── rnn_augmented.py    
+│   │   └── trainer.py          # Standardized training loop for fair comparison
+│   │
+│   └── utils/                  # MLOps & Eval Domain
+│       ├── metrics.py          
+│       └── plotting.py         
+│
+└── reports/                    # GitHub-safe documentation
+    └── figures/                # Saved charts and final visualizations
+```
+
+## Authentication for Private Repository
+
+Because this repository is private, standard `git clone` commands in Google Colab will fail. Each team member must generate a Personal Access Token (PAT) and store it securely in Colab's Secrets manager.
+
+### Step 1: Generate a GitHub Personal Access Token
+*Note: Each team member must do this on their own GitHub account.*
+
+1. Go to GitHub, click your profile picture in the top right, and select **Settings**.
+2. Scroll down the left sidebar and click **Credentials**.
+3. Click **Personal access tokens (classic)** -> **Generate new token** -> **Generate new token (classic)**.
+4. Name it something recognizable (e.g., "COMP 653 Colab Token"), set an expiration date (e.g., 90 days), and check the **`repo`** box to grant access to private repositories.
+5. Click generate and **copy the token**. You will not be able to see it again once you leave the page.
+
+### Step 2: Store the Token Securely in Google Colab
+*⚠️ **CRITICAL:** Never paste this token directly into notebook text or commit it to GitHub.*
+
+1. Open your Google Colab execution notebook.
+2. Click the **Key icon (🔑)** on the left sidebar to open the "Secrets" panel.
+3. Click **Add new secret**.
+4. Name the secret **`GITHUB_TOKEN`** (must be typed exactly like this) and paste your copied token into the Value box.
+5. Toggle the **"Notebook access"** button to ON.
+
+## Execution via Google Colab Pro
+Because data is hosted on a Google Shared Drive and code is version-controlled here, all execution notebooks (`notebooks/`) must begin with the following boilerplate to bridge the environments:
+
+```python
+# 1. Mount Google Drive for Datasets & Model Weights
+from google.colab import drive
+drive.mount('/content/drive')
+
+# 2. Clone PRIVATE repository
+from google.colab import userdata
+
+# Fetch the hidden token from Colab Secrets
+GITHUB_TOKEN = userdata.get('GITHUB_TOKEN')
+GITHUB_USER = "jesseingraham"
+REPO_NAME = "comp-653-stock-prediction-i"
+
+# Clone using the token URL formatting
+!git clone https://{GITHUB_TOKEN}@github.com/{GITHUB_USER}/{REPO_NAME}.git
+%cd {REPO_NAME}
+
+# 3. Install dependencies
+!pip install -r requirements.txt
+
+# 4. Import modularized code
+from src.config import DRIVE_DATA_PATH
+from src.data.fetcher import get_sp500_data
+```
