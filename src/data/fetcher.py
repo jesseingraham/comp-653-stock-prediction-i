@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
-from loguru import logger
 
 from config import DRIVE_DATA_PATH, END_DATE, START_DATE, TICKER
 
@@ -106,12 +105,9 @@ def get_sp500_data(
     df = fetch_ohlcv()
     if save:
         path = save_raw(df, filename=filename, data_dir=data_dir)
-        logger.info(
-            "Saved {:,} rows ({} to {}) to {}",
-            len(df),
-            df.index.min().date(),
-            df.index.max().date(),
-            path,
+        print(
+            f"Saved {len(df):,} rows ({df.index.min().date()} to "
+            f"{df.index.max().date()}) to {path}"
         )
     return df
 
