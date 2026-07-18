@@ -19,7 +19,7 @@ from config import DRIVE_DATA_PATH, END_DATE, START_DATE, TICKER
 OHLCV_COLUMNS = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
 
 # Default filename for the persisted raw dataset.
-RAW_FILENAME = "sp500_daily.parquet"
+RAW_FILENAME = "sp500_daily_raw.parquet"
 
 
 def fetch_ohlcv(

@@ -13,8 +13,9 @@ import os
 # Direct path to the Google Shared Drive.
 DRIVE_ROOT = "/content/drive/Shareddrives/COMP 653 - Final Project"
 
-# Sub-directories for organization.
-DRIVE_DATA_PATH = os.path.join(DRIVE_ROOT, "raw_data")
+# Sub-directories for organization. Raw and cleaned datasets share this data
+# folder and are distinguished by filename suffix (_raw / _clean).
+DRIVE_DATA_PATH = os.path.join(DRIVE_ROOT, "data")
 DRIVE_MODELS_PATH = os.path.join(DRIVE_ROOT, "saved_models")
 
 # ==========================================
