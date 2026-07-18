@@ -19,6 +19,9 @@ git+https://github.com/zeta-zetra/chart_patterns.git
 scikit-learn>=1.2.0       # Data scaling (MinMaxScaler) and evaluation metrics
 torch>=2.0.0              # PyTorch framework for Baseline and Augmented RNNs
 
-# 5. Evaluation & Visualization 
+# 5. Evaluation & Visualization
 matplotlib>=3.7.0         # Core plotting library for evaluation
 seaborn>=0.12.0           # Statistical data visualization (loss curves, etc.)
+
+# 6. Utilities
+loguru>=0.7.0             # Structured logging across src/ modules

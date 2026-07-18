@@ -8,10 +8,11 @@ Shared Drive (`DRIVE_DATA_PATH`).
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
+from loguru import logger
 
 from config import DRIVE_DATA_PATH, END_DATE, START_DATE, TICKER
 
@@ -51,9 +52,7 @@ def fetch_ohlcv(
     )
 
     if df is None or df.empty:
-        raise ValueError(
-            f"No data returned for {ticker!r} between {start} and {end}."
-        )
+        raise ValueError(f"No data returned for {ticker!r} between {start} and {end}.")
 
     # For a single ticker yfinance still returns MultiIndex columns
     # (field, ticker); collapse them to just the field level.
@@ -68,8 +67,8 @@ def fetch_ohlcv(
 def save_raw(
     df: pd.DataFrame,
     filename: str = RAW_FILENAME,
-    data_dir: str = DRIVE_DATA_PATH,
-) -> str:
+    data_dir: str | Path = DRIVE_DATA_PATH,
+) -> Path:
     """Write a raw OHLCV DataFrame to Parquet, creating `data_dir` if needed.
 
     Args:
@@ -78,10 +77,11 @@ def save_raw(
         data_dir: Destination directory (defaults to the Shared Drive path).
 
     Returns:
-        The absolute path the file was written to.
+        The path the file was written to.
     """
-    os.makedirs(data_dir, exist_ok=True)
-    path = os.path.join(data_dir, filename)
+    dest_dir = Path(data_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    path = dest_dir / filename
     df.to_parquet(path)
     return path
 
@@ -89,7 +89,7 @@ def save_raw(
 def get_sp500_data(
     save: bool = True,
     filename: str = RAW_FILENAME,
-    data_dir: str = DRIVE_DATA_PATH,
+    data_dir: str | Path = DRIVE_DATA_PATH,
 ) -> pd.DataFrame:
     """Fetch S&P 500 daily OHLCV and optionally persist it to the Shared Drive.
 
@@ -106,12 +106,20 @@ def get_sp500_data(
     df = fetch_ohlcv()
     if save:
         path = save_raw(df, filename=filename, data_dir=data_dir)
-        print(
-            f"Saved {len(df):,} rows ({df.index.min().date()} to "
-            f"{df.index.max().date()}) to {path}"
+        logger.info(
+            "Saved {:,} rows ({} to {}) to {}",
+            len(df),
+            df.index.min().date(),
+            df.index.max().date(),
+            path,
         )
     return df
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Fetch and persist the S&P 500 dataset when run as a script."""
     get_sp500_data()
+
+
+if __name__ == "__main__":
+    main()
