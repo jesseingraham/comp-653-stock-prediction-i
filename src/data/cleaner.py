@@ -10,13 +10,20 @@ Real market moves and zero-volume sessions are preserved.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+from config import DRIVE_DATA_PATH
 
 # Price columns retained in the cleaned output. "Adj Close" is intentionally
 # excluded: for a price index it is identical to "Close".
 PRICE_COLUMNS = ["Open", "High", "Low", "Close"]
 CLEAN_COLUMNS = [*PRICE_COLUMNS, "Volume"]
+
+# Default filename for the persisted cleaned dataset.
+CLEAN_FILENAME = "sp500_daily_clean.parquet"
 
 
 def _invalid_row_mask(df: pd.DataFrame) -> pd.Series:
@@ -131,12 +138,35 @@ def clean_ohlcv(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
     return out
 
 
+def save_clean(
+    df: pd.DataFrame,
+    filename: str = CLEAN_FILENAME,
+    data_dir: str | Path = DRIVE_DATA_PATH,
+) -> Path:
+    """Write a cleaned OHLCV DataFrame to Parquet, creating `data_dir` if needed.
+
+    Args:
+        df: The cleaned OHLCV DataFrame to persist.
+        filename: Output file name written inside `data_dir`.
+        data_dir: Destination directory (defaults to the Shared Drive path).
+
+    Returns:
+        The path the file was written to.
+    """
+    dest_dir = Path(data_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    path = dest_dir / filename
+    df.to_parquet(path)
+    return path
+
+
 def main() -> None:
-    """Fetch raw data and run the cleaner, printing a summary report."""
+    """Fetch raw data, clean it, and persist the cleaned dataset."""
     from src.data.fetcher import fetch_ohlcv
 
     raw = fetch_ohlcv()
-    clean_ohlcv(raw)
+    clean = clean_ohlcv(raw)
+    save_clean(clean)
 
 
 if __name__ == "__main__":
