@@ -361,8 +361,10 @@ def tune_model(
         seed: Seed for the search algorithm and RNGs.
 
     Returns:
-        The Ray Tune best-result object (``.config``, ``.metrics``,
-        ``.checkpoint``).
+        The Ray Tune ``ResultGrid`` for the run. Call
+        ``result.get_best_result("val_rmse", mode="min")`` for the best trial,
+        ``result.get_dataframe()`` for a per-trial summary, and each result's
+        ``metrics_dataframe`` for per-epoch learning curves.
     """
     from ray import tune
     from ray.train import CheckpointConfig, RunConfig
@@ -411,7 +413,7 @@ def tune_model(
             ),
         ),
     )
-    return tuner.fit().get_best_result(metric="val_rmse", mode="min")
+    return tuner.fit()
 
 
 def evaluate_on_test(
@@ -426,7 +428,7 @@ def evaluate_on_test(
     max_epochs: int = 50,
     device: str | None = None,
     scaler_factory: ScalerFactory | None = None,
-) -> dict[str, float]:
+) -> dict[str, Any]:
     """Retrain `config` on all development data and score the held-out test set.
 
     Args:
@@ -442,7 +444,8 @@ def evaluate_on_test(
         scaler_factory: Optional scaler (fit on development data only).
 
     Returns:
-        ``{"test_rmse": ..., "test_directional_accuracy": ...}``.
+        A dict with ``test_rmse`` and ``test_directional_accuracy`` floats plus
+        the raw ``predictions`` and ``targets`` NumPy arrays (for plotting).
     """
     num_features = num_features or x_dev.shape[-1]
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -472,4 +475,6 @@ def evaluate_on_test(
     return {
         "test_rmse": rmse(preds, targets),
         "test_directional_accuracy": directional_accuracy(preds, targets),
+        "predictions": preds.numpy(),
+        "targets": targets.numpy(),
     }
