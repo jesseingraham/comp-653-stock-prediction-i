@@ -56,27 +56,24 @@ def rmse(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
 
 
 def directional_accuracy(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
-    """Fraction of steps whose predicted direction matches the actual one.
+    """Fraction of predictions with the correct up/down sign.
 
-    Direction is taken relative to the previous *actual* target, so this assumes
-    single-step, chronologically ordered targets. Multi-column targets use the
-    first column.
+    Targets are signed changes (log or simple returns), so a positive value is
+    an up move and direction is simply the sign. Flattens across samples and all
+    forecast horizons.
 
     Args:
-        y_pred: Predicted targets, shape ``(n,)`` or ``(n, 1+)``.
-        y_true: Actual targets, same shape as `y_pred`.
+        y_pred: Predicted return targets, shape ``(n,)`` or ``(n, horizon)``.
+        y_true: Actual return targets, same shape as `y_pred`.
 
     Returns:
-        Directional accuracy in ``[0, 1]`` (0.0 if fewer than two points).
+        Directional accuracy in ``[0, 1]`` (0.0 if empty).
     """
-    pred = y_pred.reshape(len(y_pred), -1)[:, 0]
-    true = y_true.reshape(len(y_true), -1)[:, 0]
-    if len(true) < 2:
+    pred = y_pred.reshape(-1)
+    true = y_true.reshape(-1)
+    if len(true) == 0:
         return 0.0
-    ref = true[:-1]
-    pred_dir = torch.sign(pred[1:] - ref)
-    true_dir = torch.sign(true[1:] - ref)
-    return float((pred_dir == true_dir).float().mean())
+    return float((torch.sign(pred) == torch.sign(true)).float().mean())
 
 
 def walk_forward_splits(
@@ -163,14 +160,22 @@ def _build_model(
     model_cls: type[nn.Module],
     num_features: int,
     device: str,
+    output_size: int = 1,
 ) -> nn.Module:
     """Construct and build a model from a hyperparameter config."""
     model = model_cls(
         hidden_size=config["hidden_size"],
         num_layers=config["num_layers"],
         dropout=config["dropout"],
+        output_size=output_size,
     )
     return model.build(num_features).to(device)
+
+
+def _target_width(y: np.ndarray) -> int:
+    """Return the forecast horizon (target columns) of a target array."""
+    array = np.asarray(y)
+    return int(array.shape[1]) if array.ndim > 1 else 1
 
 
 def _train_one_epoch(
@@ -223,6 +228,7 @@ def train_folds(
         ``(epoch, mean_val_rmse, fold_state_dicts)`` after each epoch.
     """
     num_features = num_features or x_dev.shape[-1]
+    output_size = _target_width(y_dev)
     loss_fn = nn.MSELoss()
     folds = []
     for train_idx, val_idx in splits:
@@ -238,7 +244,9 @@ def train_folds(
         )
         folds.append(
             {
-                "model": _build_model(config, model_cls, num_features, device),
+                "model": _build_model(
+                    config, model_cls, num_features, device, output_size
+                ),
                 "loader": loader,
                 "x_val": _to_tensor(x_val).to(device),
                 "y_val": _to_tensor(y_dev[val_idx]).to(device),
@@ -458,7 +466,7 @@ def evaluate_on_test(
         batch_size=config["batch_size"],
         shuffle=True,
     )
-    model = _build_model(config, model_cls, num_features, device)
+    model = _build_model(config, model_cls, num_features, device, _target_width(y_dev))
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config["lr"],
