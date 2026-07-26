@@ -1,12 +1,17 @@
-"""Baseline recurrent model for S&P 500 price forecasting.
+"""Recurrent forecasting model for the S&P 500 experiment.
 
-Defines `RNNBaseline`, an LSTM regressor that maps a window of past
+Defines `RNNForecaster`, an LSTM regressor that maps a window of past
 observations to a forecast. The module is deliberately agnostic to both the
 window length (RNNs consume arbitrary-length sequences) and the number of input
 features: the feature count is inferred on the first forward pass, or fixed
-explicitly via `build`. This lets the same architecture serve the price-only
-baseline and, mirrored in `rnn_augmented`, the pattern-augmented variant, so the
-two stay directly comparable.
+explicitly via `build`.
+
+This single class serves **both** arms of the experiment. Measuring what chart
+patterns add requires holding the architecture constant, so the price-only and
+pattern-augmented runs differ only in the feature set they are given -- there is
+deliberately no separate "augmented" model class that could drift apart from
+this one. The two arms are distinguished by their windowed dataset and by the
+run name their artifacts are saved under.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ import torch
 from torch import nn
 
 
-class RNNBaseline(nn.Module):
+class RNNForecaster(nn.Module):
     """LSTM regressor that forecasts from a sequence of feature vectors.
 
     The network is an LSTM followed by a linear head applied to the final
@@ -59,7 +64,7 @@ class RNNBaseline(nn.Module):
         self.lstm: nn.LSTM | None = None
         self.head: nn.Linear | None = None
 
-    def build(self, num_features: int) -> RNNBaseline:
+    def build(self, num_features: int) -> RNNForecaster:
         """Instantiate the LSTM and head for a given feature count.
 
         Call this before constructing an optimizer if you want the parameters
@@ -121,7 +126,7 @@ class RNNBaseline(nn.Module):
 
 def _demo() -> None:
     """Build the model lazily and run a random batch as a shape check."""
-    model = RNNBaseline()
+    model = RNNForecaster()
     x = torch.randn(4, 30, 5)  # (batch, window, features)
     y = model(x)
     print(

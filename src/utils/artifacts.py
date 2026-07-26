@@ -16,7 +16,7 @@ A `<model_name>_latest.json` pointer at the models root records the newest run,
 so the evaluation notebook can find it without hardcoding a timestamp.
 
 Weights are stored as a ``state_dict`` with explicit build arguments rather than
-a pickled module, so they survive refactors. `RNNBaseline` builds lazily, so
+a pickled module, so they survive refactors. `RNNForecaster` builds lazily, so
 `load_run` rebuilds the architecture before loading the weights.
 """
 
@@ -35,7 +35,7 @@ import torch
 from torch import nn
 
 from config import DRIVE_MODELS_PATH
-from src.models.rnn_baseline import RNNBaseline
+from src.models.rnn_forecaster import RNNForecaster
 
 MODEL_FILENAME = "model.pt"
 SCALER_FILENAME = "scaler.joblib"
@@ -64,7 +64,7 @@ def _build_args(model: nn.Module) -> dict[str, Any]:
     """Extract the arguments needed to reconstruct `model`.
 
     Args:
-        model: A built model exposing the `RNNBaseline` hyperparameters.
+        model: A built model exposing the `RNNForecaster` hyperparameters.
 
     Returns:
         A dict of constructor arguments plus ``num_features``.
@@ -244,7 +244,7 @@ def find_latest_run(
 def load_run(
     run_dir: str | Path,
     *,
-    model_cls: type[nn.Module] = RNNBaseline,
+    model_cls: type[nn.Module] = RNNForecaster,
     device: str = "cpu",
 ) -> dict[str, Any]:
     """Reload a saved run, rebuilding the model and loading its weights.

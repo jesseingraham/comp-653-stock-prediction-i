@@ -1,8 +1,8 @@
 """Standardized training and hyperparameter tuning for the forecasting RNNs.
 
-Provides one model-agnostic pipeline so the price-only baseline (`RNNBaseline`)
-and the pattern-augmented variant are tuned and evaluated identically -- the only
-intended difference is their input features. Robustness comes from expanding-
+Provides one pipeline so the price-only and pattern-augmented runs of
+`RNNForecaster` are tuned and evaluated identically -- the only intended
+difference is the feature set each is given. Robustness comes from expanding-
 window walk-forward cross-validation: every tuning trial trains one model per
 fold in lockstep and is scored on the mean validation RMSE across folds.
 
@@ -37,7 +37,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from config import DRIVE_MODELS_PATH
-from src.models.rnn_baseline import RNNBaseline
+from src.models.rnn_forecaster import RNNForecaster
 
 # A scaler factory returns a fresh, unfitted sklearn-style scaler (fit /
 # transform) to be fitted per fold on training data only.
@@ -205,7 +205,7 @@ def train_folds(
     y_dev: np.ndarray,
     splits: list[tuple[np.ndarray, np.ndarray]],
     *,
-    model_cls: type[nn.Module] = RNNBaseline,
+    model_cls: type[nn.Module] = RNNForecaster,
     num_features: int | None = None,
     max_epochs: int = 50,
     device: str = "cpu",
@@ -332,7 +332,7 @@ def tune_model(
     x_dev: np.ndarray,
     y_dev: np.ndarray,
     *,
-    model_cls: type[nn.Module] = RNNBaseline,
+    model_cls: type[nn.Module] = RNNForecaster,
     num_features: int | None = None,
     n_folds: int = 4,
     val_size: int | None = None,
@@ -435,7 +435,7 @@ def evaluate_on_test(
     x_test: np.ndarray,
     y_test: np.ndarray,
     *,
-    model_cls: type[nn.Module] = RNNBaseline,
+    model_cls: type[nn.Module] = RNNForecaster,
     num_features: int | None = None,
     max_epochs: int = 50,
     device: str | None = None,
