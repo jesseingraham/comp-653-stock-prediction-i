@@ -184,15 +184,19 @@ def _train_one_epoch(
     optimizer: torch.optim.Optimizer,
     loss_fn: nn.Module,
     device: str,
-) -> None:
-    """Run a single training epoch over `loader`."""
+) -> float:
+    """Run a single training epoch over `loader`, returning its mean loss."""
     model.train()
+    total, batches = 0.0, 0
     for x_batch, y_batch in loader:
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         optimizer.zero_grad()
         loss = loss_fn(model(x_batch), y_batch)
         loss.backward()
         optimizer.step()
+        total += float(loss)
+        batches += 1
+    return total / max(batches, 1)
 
 
 def train_folds(
@@ -452,15 +456,17 @@ def evaluate_on_test(
         scaler_factory: Optional scaler (fit on development data only).
 
     Returns:
-        A dict with ``test_rmse`` and ``test_directional_accuracy`` floats plus
-        the raw ``predictions`` and ``targets`` NumPy arrays (for plotting).
+        A dict with ``test_rmse`` and ``test_directional_accuracy`` floats, the
+        raw ``predictions`` / ``targets`` arrays, the per-epoch
+        ``train_loss_history``, and the fitted ``model`` and ``scaler`` (the
+        scaler is ``None`` when no `scaler_factory` was given) so the run can be
+        persisted.
     """
     num_features = num_features or x_dev.shape[-1]
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    x_dev_s, x_test_s = _scale_features(
-        scaler_factory() if scaler_factory else None, x_dev, x_test
-    )
+    scaler = scaler_factory() if scaler_factory else None
+    x_dev_s, x_test_s = _scale_features(scaler, x_dev, x_test)
     loader = DataLoader(
         TensorDataset(_to_tensor(x_dev_s), _to_tensor(y_dev)),
         batch_size=config["batch_size"],
@@ -473,8 +479,10 @@ def evaluate_on_test(
         weight_decay=config.get("weight_decay", 0.0),
     )
     loss_fn = nn.MSELoss()
-    for _ in range(max_epochs):
+    train_loss_history = [
         _train_one_epoch(model, loader, optimizer, loss_fn, device)
+        for _ in range(max_epochs)
+    ]
 
     model.eval()
     with torch.no_grad():
@@ -485,4 +493,7 @@ def evaluate_on_test(
         "test_directional_accuracy": directional_accuracy(preds, targets),
         "predictions": preds.numpy(),
         "targets": targets.numpy(),
+        "train_loss_history": train_loss_history,
+        "model": model,
+        "scaler": scaler,
     }

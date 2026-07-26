@@ -29,8 +29,9 @@ comp-653-stock-prediction-i/
 │   │   └── cleaner.py          
 │   │
 │   ├── features/               # Feature Engineering Domain
+│   │   ├── base_features.py    # Stationary OHLCV-derived inputs
 │   │   ├── patterns.py         
-│   │   └── windowing.py        
+│   │   └── windowing.py        # Look-back windows + log-return targets
 │   │
 │   ├── models/                 # ML Engineering Domain
 │   │   ├── rnn_baseline.py     
@@ -38,6 +39,7 @@ comp-653-stock-prediction-i/
 │   │   └── trainer.py          # Standardized training loop for fair comparison
 │   │
 │   └── utils/                  # MLOps & Eval Domain
+│       ├── artifacts.py        # Save/load complete runs to the Shared Drive
 │       ├── metrics.py          
 │       └── plotting.py         
 │
