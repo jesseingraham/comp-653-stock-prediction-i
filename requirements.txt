@@ -12,8 +12,21 @@ numpy>=1.24.0             # Numerical operations and array handling
 pyarrow>=12.0.0           # Parquet file support for fast data loading from Drive
 
 # 3. Chart Pattern Recognition
-# Installed directly via GitHub to process emerging patterns
-git+https://github.com/zeta-zetra/chart_patterns.git
+# zeta-zetra/chart_patterns is deliberately NOT listed here: `pip install git+...`
+# fails to resolve, and because pip resolves everything before installing anything,
+# it silently aborts this entire file (ray, optuna and fredapi never install).
+# Its metadata is broken four ways:
+#   - pins kaleido==0.1.0.post1, a Windows-only build (unavailable on Linux)
+#   - requires Python <3.11, but Colab runs 3.12
+#   - pins pandas==1.3.5, contradicting this project's pandas>=2.0.0
+#   - its modules import `chart_patterns.chart_patterns.*`, a nested layout its
+#     own flat install never creates, so the installed package cannot import
+# The detector code itself is fine and runs on modern pandas. Clone it and put
+# the clone's PARENT directory on sys.path instead:
+#     !git clone https://github.com/zeta-zetra/chart_patterns.git /content/vendor/chart_patterns
+#     sys.path.append('/content/vendor')
+#     from chart_patterns.chart_patterns.pivot_points import find_all_pivot_points
+# Its real runtime deps (plotly, scipy, tqdm) are preinstalled on Colab.
 
 # 4. Machine Learning & Modeling 
 scikit-learn>=1.2.0       # Data scaling (StandardScaler) and evaluation metrics
