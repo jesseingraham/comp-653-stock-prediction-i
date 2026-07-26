@@ -304,7 +304,7 @@ def _tune_trainable(
     scaler_factory: ScalerFactory | None,
 ) -> None:
     """Ray Tune trainable: train folds and report mean val RMSE each epoch."""
-    from ray import train
+    from ray import tune
 
     for epoch, mean_rmse, states in train_folds(
         config,
@@ -322,9 +322,9 @@ def _tune_trainable(
                 {"epoch": epoch, "fold_states": states, "config": config},
                 os.path.join(ckpt_dir, "checkpoint.pt"),
             )
-            train.report(
+            tune.report(
                 {"val_rmse": mean_rmse, "epoch": epoch},
-                checkpoint=train.Checkpoint.from_directory(ckpt_dir),
+                checkpoint=tune.Checkpoint.from_directory(ckpt_dir),
             )
 
 
@@ -378,8 +378,11 @@ def tune_model(
         ``result.get_dataframe()`` for a per-trial summary, and each result's
         ``metrics_dataframe`` for per-epoch learning curves.
     """
+    # Import the config classes from ray.tune, not ray.train: under Ray Train V2
+    # (default since 2.43) ray.train.RunConfig is a different class whose
+    # deprecated `verbose` field is a string sentinel, which Tuner then feeds to
+    # get_air_verbosity() and crashes on.
     from ray import tune
-    from ray.train import CheckpointConfig, RunConfig
     from ray.tune.schedulers import ASHAScheduler
     from ray.tune.search.optuna import OptunaSearch
 
@@ -415,10 +418,10 @@ def tune_model(
             mode="min",
             num_samples=num_samples,
         ),
-        run_config=RunConfig(
+        run_config=tune.RunConfig(
             name=experiment_name,
             storage_path=storage_path,
-            checkpoint_config=CheckpointConfig(
+            checkpoint_config=tune.CheckpointConfig(
                 num_to_keep=1,
                 checkpoint_score_attribute="val_rmse",
                 checkpoint_score_order="min",
