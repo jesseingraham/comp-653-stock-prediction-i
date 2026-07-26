@@ -16,8 +16,9 @@ pyarrow>=12.0.0           # Parquet file support for fast data loading from Driv
 git+https://github.com/zeta-zetra/chart_patterns.git
 
 # 4. Machine Learning & Modeling 
-scikit-learn>=1.2.0       # Data scaling (MinMaxScaler) and evaluation metrics
+scikit-learn>=1.2.0       # Data scaling (StandardScaler) and evaluation metrics
 torch>=2.0.0              # PyTorch framework for Baseline and Augmented RNNs
+joblib>=1.2.0             # Persisting the fitted scaler alongside model weights
 
 # 5. Evaluation & Visualization
 matplotlib>=3.7.0         # Core plotting library for evaluation
