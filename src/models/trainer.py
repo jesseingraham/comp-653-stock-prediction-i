@@ -194,7 +194,9 @@ def _train_one_epoch(
         loss = loss_fn(model(x_batch), y_batch)
         loss.backward()
         optimizer.step()
-        total += float(loss)
+        # Detach before converting: keeping the graph alive to read a scalar
+        # warns and can retain memory.
+        total += loss.detach().item()
         batches += 1
     return total / max(batches, 1)
 
@@ -302,8 +304,15 @@ def _tune_trainable(
     max_epochs: int,
     device: str,
     scaler_factory: ScalerFactory | None,
+    checkpoint_freq: int = 0,
 ) -> None:
-    """Ray Tune trainable: train folds and report mean val RMSE each epoch."""
+    """Ray Tune trainable: train folds and report mean val RMSE each epoch.
+
+    Checkpoints are written every `checkpoint_freq` epochs, or never when it is
+    0 (the default). ASHA only needs the reported metric, and the best
+    configuration is retrained from scratch by `evaluate_on_test`, so trial
+    checkpoints are optional -- see `tune_model` for the trade-off.
+    """
     from ray import tune
 
     for epoch, mean_rmse, states in train_folds(
@@ -317,15 +326,18 @@ def _tune_trainable(
         device=device,
         scaler_factory=scaler_factory,
     ):
-        with tempfile.TemporaryDirectory() as ckpt_dir:
-            torch.save(
-                {"epoch": epoch, "fold_states": states, "config": config},
-                os.path.join(ckpt_dir, "checkpoint.pt"),
-            )
-            tune.report(
-                {"val_rmse": mean_rmse, "epoch": epoch},
-                checkpoint=tune.Checkpoint.from_directory(ckpt_dir),
-            )
+        metrics = {"val_rmse": mean_rmse, "epoch": epoch}
+        if checkpoint_freq and (epoch + 1) % checkpoint_freq == 0:
+            with tempfile.TemporaryDirectory() as ckpt_dir:
+                torch.save(
+                    {"epoch": epoch, "fold_states": states, "config": config},
+                    os.path.join(ckpt_dir, "checkpoint.pt"),
+                )
+                tune.report(
+                    metrics, checkpoint=tune.Checkpoint.from_directory(ckpt_dir)
+                )
+        else:
+            tune.report(metrics)
 
 
 def tune_model(
@@ -345,6 +357,7 @@ def tune_model(
     gpu_per_trial: float = 0.0,
     device: str | None = None,
     scaler_factory: ScalerFactory | None = None,
+    checkpoint_freq: int = 0,
     seed: int = 0,
 ) -> Any:
     """Tune a model with Optuna (TPE) search + ASHA over walk-forward folds.
@@ -370,6 +383,14 @@ def tune_model(
         gpu_per_trial: Fractional GPU per trial (e.g. 0.25 to pack four).
         device: Torch device; auto-detected when ``None``.
         scaler_factory: Optional per-fold scaler factory.
+        checkpoint_freq: Write a trial checkpoint every this many epochs; 0
+            (default) disables them. ASHA prunes on the reported metric alone
+            and `evaluate_on_test` retrains the winning config from scratch, so
+            checkpoints are not needed for the normal flow -- and writing them
+            every epoch to a Drive-backed `storage_path` forces a full
+            experiment-state snapshot each time, which Ray warns about and which
+            dominates runtime for short trials. Set to 1 for mid-trial
+            resumability or for a future Population Based Training scheduler.
         seed: Seed for the search algorithm and RNGs.
 
     Returns:
@@ -401,8 +422,17 @@ def tune_model(
         max_epochs=max_epochs,
         device=device,
         scaler_factory=scaler_factory,
+        checkpoint_freq=checkpoint_freq,
     )
     trainable = tune.with_resources(trainable, {"cpu": 1, "gpu": gpu_per_trial})
+
+    # num_to_keep forces an experiment-state snapshot each time a trial exceeds
+    # it, so only constrain retention when checkpoints are actually written.
+    checkpoint_config = tune.CheckpointConfig(
+        num_to_keep=2 if checkpoint_freq else None,
+        checkpoint_score_attribute="val_rmse",
+        checkpoint_score_order="min",
+    )
 
     tuner = tune.Tuner(
         trainable,
@@ -421,11 +451,7 @@ def tune_model(
         run_config=tune.RunConfig(
             name=experiment_name,
             storage_path=storage_path,
-            checkpoint_config=tune.CheckpointConfig(
-                num_to_keep=1,
-                checkpoint_score_attribute="val_rmse",
-                checkpoint_score_order="min",
-            ),
+            checkpoint_config=checkpoint_config,
         ),
     )
     return tuner.fit()
