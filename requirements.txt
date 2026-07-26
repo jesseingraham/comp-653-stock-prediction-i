@@ -38,5 +38,6 @@ matplotlib>=3.7.0         # Core plotting library for evaluation
 seaborn>=0.12.0           # Statistical data visualization (loss curves, etc.)
 
 # 6. Hyperparameter Tuning (Colab: Python <=3.12; no wheels for 3.13 yet)
-ray[tune]>=2.9.0          # Parallel trials + ASHA early stopping
+ray[tune]>=2.43.0         # Parallel trials + ASHA; 2.43 exports RunConfig etc.
+                          # from ray.tune (ray.train's Train V2 versions break Tuner)
 optuna>=3.4.0             # TPE Bayesian search algorithm for Ray Tune
