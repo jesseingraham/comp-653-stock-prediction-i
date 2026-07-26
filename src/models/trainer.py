@@ -519,6 +519,8 @@ def evaluate_on_test(
         "skill_vs_zero": summary["skill_vs_zero"],
         "skill_vs_previous": summary["skill_vs_previous"],
         "beats_naive": summary["beats_naive"],
+        "collapsed": summary["collapsed"],
+        "prediction_std_ratio": summary["prediction_std_ratio"],
         "predictions": preds.numpy(),
         "targets": targets.numpy(),
         "train_loss_history": train_loss_history,
