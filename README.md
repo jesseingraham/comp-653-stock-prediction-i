@@ -34,8 +34,7 @@ comp-653-stock-prediction-i/
 │   │   └── windowing.py        # Look-back windows + log-return targets
 │   │
 │   ├── models/                 # ML Engineering Domain
-│   │   ├── rnn_baseline.py     
-│   │   ├── rnn_augmented.py    
+│   │   ├── rnn_forecaster.py   # One RNN for both arms (features are the variable)
 │   │   └── trainer.py          # Standardized training loop for fair comparison
 │   │
 │   └── utils/                  # MLOps & Eval Domain
