@@ -39,41 +39,32 @@ from torch.utils.data import DataLoader, TensorDataset
 from config import DRIVE_MODELS_PATH
 from src.models.rnn_forecaster import RNNForecaster
 
+# Metrics live in src.utils.metrics (the eval domain) and are re-exported here
+# so existing callers keep working.
+from src.utils.metrics import (  # noqa: E402
+    directional_accuracy,
+    rmse,
+    summarize_forecast,
+)
+
+__all__ = [
+    "directional_accuracy",
+    "evaluate_on_test",
+    "rmse",
+    "train_folds",
+    "tune_model",
+    "walk_forward_splits",
+]
+
 # A scaler factory returns a fresh, unfitted sklearn-style scaler (fit /
 # transform) to be fitted per fold on training data only.
 ScalerFactory = Callable[[], Any]
 
 
 def set_seed(seed: int) -> None:
-    """Seed Python, NumPy, and torch RNGs for reproducible runs."""
+    """Seed NumPy and torch RNGs for reproducible runs."""
     np.random.seed(seed)
     torch.manual_seed(seed)
-
-
-def rmse(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
-    """Root mean squared error between two tensors, as a Python float."""
-    return float(torch.sqrt(torch.mean((y_pred - y_true) ** 2)))
-
-
-def directional_accuracy(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
-    """Fraction of predictions with the correct up/down sign.
-
-    Targets are signed changes (log or simple returns), so a positive value is
-    an up move and direction is simply the sign. Flattens across samples and all
-    forecast horizons.
-
-    Args:
-        y_pred: Predicted return targets, shape ``(n,)`` or ``(n, horizon)``.
-        y_true: Actual return targets, same shape as `y_pred`.
-
-    Returns:
-        Directional accuracy in ``[0, 1]`` (0.0 if empty).
-    """
-    pred = y_pred.reshape(-1)
-    true = y_true.reshape(-1)
-    if len(true) == 0:
-        return 0.0
-    return float((torch.sign(pred) == torch.sign(true)).float().mean())
 
 
 def walk_forward_splits(
@@ -517,9 +508,17 @@ def evaluate_on_test(
     with torch.no_grad():
         preds = model(_to_tensor(x_test_s).to(device)).cpu()
     targets = _to_tensor(y_test)
+    # Naive baselines travel with every result: on daily returns a model can
+    # post a small RMSE while being no better than predicting zero.
+    summary = summarize_forecast(targets.numpy(), preds.numpy())
     return {
-        "test_rmse": rmse(preds, targets),
-        "test_directional_accuracy": directional_accuracy(preds, targets),
+        "test_rmse": summary["rmse"],
+        "test_directional_accuracy": summary["directional_accuracy"],
+        "naive_zero_rmse": summary["naive_zero_rmse"],
+        "naive_previous_rmse": summary["naive_previous_rmse"],
+        "skill_vs_zero": summary["skill_vs_zero"],
+        "skill_vs_previous": summary["skill_vs_previous"],
+        "beats_naive": summary["beats_naive"],
         "predictions": preds.numpy(),
         "targets": targets.numpy(),
         "train_loss_history": train_loss_history,
