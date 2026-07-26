@@ -26,6 +26,12 @@ from typing import Any
 import numpy as np
 
 
+# A forecast whose spread is below this fraction of the targets' spread is
+# treated as collapsed: it is emitting a near-constant value rather than
+# discriminating between days.
+COLLAPSE_STD_RATIO = 0.05
+
+
 def _to_numpy(values: Any) -> np.ndarray:
     """Convert a torch tensor, sequence, or array to a float NumPy array."""
     if hasattr(values, "detach"):
@@ -121,6 +127,8 @@ def summarize_forecast(y_true: Any, y_pred: Any) -> dict[str, float | bool]:
     model_rmse = rmse(y_pred, y_true)
     zero_rmse = rmse(naive_zero_forecast(y_true), y_true)
     previous_rmse = rmse(naive_previous_forecast(y_true), y_true)
+    pred_std = float(_to_numpy(y_pred).std())
+    true_std = float(_to_numpy(y_true).std())
     return {
         "rmse": model_rmse,
         "mae": mae(y_pred, y_true),
@@ -130,6 +138,10 @@ def summarize_forecast(y_true: Any, y_pred: Any) -> dict[str, float | bool]:
         "skill_vs_zero": skill_score(model_rmse, zero_rmse),
         "skill_vs_previous": skill_score(model_rmse, previous_rmse),
         "beats_naive": bool(model_rmse < zero_rmse and model_rmse < previous_rmse),
+        "prediction_std": pred_std,
+        "target_std": true_std,
+        "prediction_std_ratio": (pred_std / true_std) if true_std else 0.0,
+        "collapsed": bool(true_std > 0 and pred_std < COLLAPSE_STD_RATIO * true_std),
     }
 
 
@@ -140,13 +152,23 @@ def format_summary(summary: dict[str, float | bool]) -> str:
         if summary["beats_naive"]
         else "does NOT beat the naive baselines"
     )
-    return (
-        f"RMSE                 {summary['rmse']:.6f}\n"
-        f"MAE                  {summary['mae']:.6f}\n"
-        f"Directional accuracy {summary['directional_accuracy']:.3f}\n"
+    lines = [
+        f"RMSE                 {summary['rmse']:.6f}",
+        f"MAE                  {summary['mae']:.6f}",
+        f"Directional accuracy {summary['directional_accuracy']:.3f}",
         f"Naive zero RMSE      {summary['naive_zero_rmse']:.6f}  "
-        f"(skill {summary['skill_vs_zero']:+.3f})\n"
+        f"(skill {summary['skill_vs_zero']:+.3f})",
         f"Naive previous RMSE  {summary['naive_previous_rmse']:.6f}  "
-        f"(skill {summary['skill_vs_previous']:+.3f})\n"
-        f"Verdict: model {verdict}."
-    )
+        f"(skill {summary['skill_vs_previous']:+.3f})",
+        f"Prediction spread    {summary['prediction_std']:.6f} vs target "
+        f"{summary['target_std']:.6f} "
+        f"(ratio {summary['prediction_std_ratio']:.3f})",
+        f"Verdict: model {verdict}.",
+    ]
+    if summary["collapsed"]:
+        lines.append(
+            "WARNING: predictions are near-constant, so the model is not "
+            "discriminating between days. Directional accuracy is then an "
+            "artifact of the up-day rate, not skill."
+        )
+    return "\n".join(lines)
