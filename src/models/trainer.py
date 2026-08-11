@@ -527,3 +527,74 @@ def evaluate_on_test(
         "model": model,
         "scaler": scaler,
     }
+
+#add by Mingjing Liao
+def tune_model_PatchTST(
+    X, y,
+    storage_path,
+    experiment_name='patchtst_tune',
+    gpu_per_trial=0.0,
+    scaler_factory=None,
+    num_samples=30,
+    max_epochs=50,
+    n_folds=4,
+    **kwargs
+):
+    """
+    Tune a PatchTSTForecaster with its own search space.
+    """
+    from ray import tune
+    from ray.tune import Tuner, TuneConfig
+    from ray.tune.schedulers import AsyncHyperBandScheduler
+    from src.models.patchtst_forecaster import PatchTSTForecaster
+
+    # PatchTST‑specific search space
+    search_space = {
+        "patch_len": tune.choice([4, 8, 16]),
+        "stride": tune.choice([2, 4, 8]),
+        "d_model": tune.choice([32, 64, 128]),
+        "n_heads": tune.choice([2, 4, 8]),
+        "n_layers": tune.choice([1, 2, 3]),
+        "dropout": tune.uniform(0.1, 0.5),
+        "lr": tune.loguniform(1e-4, 1e-2),
+        "batch_size": tune.choice([32, 64, 128]),
+        "weight_decay": tune.loguniform(1e-5, 1e-3),
+    }
+
+    # Define the trainable function (identical to your existing one,
+    # but using PatchTSTForecaster and the search_space parameters)
+    def trainable(config):
+        # Import inside to avoid pickling issues
+        from src.models.trainer import _walk_forward_cv  # if you have it
+        # or replicate the cross‑validation logic here.
+        # For simplicity, we assume you have a helper function.
+        # If not, copy the CV code from your original tune_model.
+        # We'll assume you have a `walk_forward_cv` function that
+        # takes (X, y, model_cls, config, n_folds, scaler_factory)
+        # and returns the mean validation RMSE.
+        from src.models.trainer import walk_forward_cv
+        val_rmse = walk_forward_cv(
+            X, y,
+            model_cls=PatchTSTForecaster,
+            config=config,
+            n_folds=n_folds,
+            scaler_factory=scaler_factory,
+            max_epochs=max_epochs
+        )
+        tune.report(val_rmse=val_rmse)
+
+    # Tune configuration
+    tuner = Tuner(
+        trainable,
+        param_space=search_space,
+        tune_config=TuneConfig(
+            scheduler=AsyncHyperBandScheduler(metric="val_rmse", mode="min"),
+            num_samples=num_samples,
+            **kwargs
+        ),
+        run_config=ray.air.RunConfig(
+            storage_path=storage_path,
+            name=experiment_name,
+        ),
+    )
+    return tuner.fit()
