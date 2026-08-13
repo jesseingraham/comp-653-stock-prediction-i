@@ -45,29 +45,6 @@ comp-653-stock-prediction-i/
 └── reports/                    # GitHub-safe documentation
     └── figures/                # Saved charts and final visualizations
 ```
-
-## Authentication for Private Repository
-
-Because this repository is private, standard `git clone` commands in Google Colab will fail. Each team member must generate a Personal Access Token (PAT) and store it securely in Colab's Secrets manager.
-
-### Step 1: Generate a GitHub Personal Access Token
-*Note: Each team member must do this on their own GitHub account.*
-
-1. Go to GitHub, click your profile picture in the top right, and select **Settings**.
-2. Scroll down the left sidebar and click **Credentials**.
-3. Click **Personal access tokens (classic)** -> **Generate new token** -> **Generate new token (classic)**.
-4. Name it something recognizable (e.g., "COMP 653 Colab Token"), set an expiration date (e.g., 90 days), and check the **`repo`** box to grant access to private repositories.
-5. Click generate and **copy the token**. You will not be able to see it again once you leave the page.
-
-### Step 2: Store the Token Securely in Google Colab
-*⚠️ **CRITICAL:** Never paste this token directly into notebook text or commit it to GitHub.*
-
-1. Open your Google Colab execution notebook.
-2. Click the **Key icon (🔑)** on the left sidebar to open the "Secrets" panel.
-3. Click **Add new secret**.
-4. Name the secret **`GITHUB_TOKEN`** (must be typed exactly like this) and paste your copied token into the Value box.
-5. Toggle the **"Notebook access"** button to ON.
-
 ## Execution via Google Colab Pro
 Because data is hosted on a Google Shared Drive and code is version-controlled here, all execution notebooks (`notebooks/`) must begin with the following boilerplate to bridge the environments:
 
@@ -80,14 +57,15 @@ from google.colab import drive, userdata
 drive.mount('/content/drive')
 
 # 2. Define Absolute Paths
-GITHUB_TOKEN = userdata.get('GITHUB_TOKEN')
+#GITHUB_TOKEN = userdata.get('GITHUB_TOKEN')
 GITHUB_USER = "jesseingraham"
 REPO_NAME = "comp-653-stock-prediction-i"
 REPO_PATH = f"/content/{REPO_NAME}"
 
 # 3. Clone ONLY if we haven't already
 if not os.path.exists(REPO_PATH):
-    !git clone https://{GITHUB_TOKEN}@github.com/{GITHUB_USER}/{REPO_NAME}.git
+    #!git clone https://{GITHUB_TOKEN}@github.com/{GITHUB_USER}/{REPO_NAME}.git
+    !git clone https://github.com/{GITHUB_USER}/{REPO_NAME}.git
 
 # 4. Safely change to the absolute path
 os.chdir(REPO_PATH)
