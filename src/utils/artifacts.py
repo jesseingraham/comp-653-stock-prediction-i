@@ -84,6 +84,32 @@ def _build_args(model: nn.Module) -> dict[str, Any]:
     }
 
 
+def _metric_value(value: Any) -> Any:
+    """Coerce a metric to a JSON-native number where possible.
+
+    `save_run` serializes the manifest with ``json.dumps(..., default=str)``,
+    which silently stringifies anything it cannot serialize -- and numpy scalars
+    are not serializable. A plain ``isinstance(value, (int, float))`` test is not
+    enough to catch them: ``np.float64`` subclasses Python ``float`` and slips
+    through, but ``np.float32`` does not. ``np.sqrt(np.mean(...))`` over float32
+    predictions returns ``np.float32``, so test RMSE was being written to the
+    manifest as a string while directional accuracy (float64) came out a number.
+
+    Args:
+        value: A metric value, possibly a numpy scalar.
+
+    Returns:
+        A Python ``float`` for any real number, otherwise `value` unchanged.
+    """
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return float(value)
+    return value
+
+
 def _predictions_frame(
     predictions: np.ndarray,
     targets: np.ndarray,
@@ -185,10 +211,7 @@ def save_run(
     manifest = {
         "model_name": model_name,
         "timestamp": timestamp,
-        "metrics": {
-            key: (float(value) if isinstance(value, (int, float)) else value)
-            for key, value in metrics.items()
-        },
+        "metrics": {key: _metric_value(value) for key, value in metrics.items()},
         "config": config,
         "build_args": build_args,
         "train_loss_history": list(train_loss_history or []),
