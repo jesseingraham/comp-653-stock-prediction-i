@@ -244,34 +244,42 @@ def find_latest_run(
 def load_run(
     run_dir: str | Path,
     *,
-    model_cls: type[nn.Module] = RNNForecaster,
+    model_cls: type[nn.Module] | None = RNNForecaster,
     device: str = "cpu",
 ) -> dict[str, Any]:
-    """Reload a saved run, rebuilding the model and loading its weights.
+    """Reload a saved run, optionally rebuilding the model and its weights.
 
     Args:
         run_dir: Directory written by `save_run`.
-        model_cls: Class to reconstruct (must accept the saved build args).
+        model_cls: Class to reconstruct (must accept the saved build args), or
+            ``None`` to skip rebuilding and return ``model=None``. Reconstruction
+            assumes `RNNForecaster`'s build args (``hidden_size``, ``num_layers``,
+            ...) and a ``build`` method; the PatchTST stages record placeholder
+            zeros for those, so their runs must be loaded with ``None``. Reading
+            the rest of the run never needs the class -- `save_run` stores a plain
+            dict of tensors, not a pickled model.
         device: Device to map the weights onto.
 
     Returns:
-        A dict with the rebuilt ``model``, plus ``config``, ``manifest``, and
-        whichever of ``scaler``, ``trials``, ``learning_curves`` and
-        ``predictions`` were saved (``None`` when absent).
+        A dict with the rebuilt ``model`` (``None`` when `model_cls` is ``None``),
+        plus ``config``, ``manifest``, and whichever of ``scaler``, ``trials``,
+        ``learning_curves`` and ``predictions`` were saved (``None`` when absent).
     """
     path = Path(run_dir)
     payload = torch.load(path / MODEL_FILENAME, map_location=device, weights_only=False)
-    build_args = payload["build_args"]
 
-    model = model_cls(
-        hidden_size=build_args["hidden_size"],
-        num_layers=build_args["num_layers"],
-        dropout=build_args["dropout"],
-        output_size=build_args["output_size"],
-    )
-    model.build(build_args["num_features"]).to(device)
-    model.load_state_dict(payload["state_dict"])
-    model.eval()
+    model = None
+    if model_cls is not None:
+        build_args = payload["build_args"]
+        model = model_cls(
+            hidden_size=build_args["hidden_size"],
+            num_layers=build_args["num_layers"],
+            dropout=build_args["dropout"],
+            output_size=build_args["output_size"],
+        )
+        model.build(build_args["num_features"]).to(device)
+        model.load_state_dict(payload["state_dict"])
+        model.eval()
 
     scaler = None
     if (path / SCALER_FILENAME).exists():
